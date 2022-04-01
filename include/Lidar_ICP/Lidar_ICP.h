@@ -16,6 +16,7 @@
 #include <tf2/utils.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <sensor_msgs/PointCloud.h>
 
 using namespace std;
 using namespace Eigen;
@@ -27,6 +28,7 @@ public:
     ~Lidar_ICP();
     void point_base_matching(const vector<vector<Vector2f>> &point_pairs);
     void ICP();
+    void basescan_make();
     void scan2_callback(const sensor_msgs::LaserScanConstPtr &data);
     void scan1_callback(const sensor_msgs::LaserScanConstPtr &data);
     void print_rotation();
@@ -41,6 +43,7 @@ protected:
     ros::NodeHandle nh_;
     ros::Subscriber scan1_sub_;
     ros::Subscriber scan2_sub_;
+    ros::Publisher basescan_pub_;
     std::vector<Vector2f> scan1_poses_;
     std::vector<Vector2f> scan2_poses_;
     bool ready1_;

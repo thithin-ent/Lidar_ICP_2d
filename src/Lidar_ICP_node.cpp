@@ -7,7 +7,7 @@ int main (int argc, char *argv[])
     geometry_msgs::TransformStamped transformStamped;
     tf2::Quaternion q;
     Lidar_ICP *lidar_ICP = new Lidar_ICP;
-    ros::Rate rate(4);
+    ros::Rate rate(10);
     while (ros::ok())
     {
         lidar_ICP->ICP();

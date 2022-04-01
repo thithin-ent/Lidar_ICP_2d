@@ -5,6 +5,7 @@ Lidar_ICP::Lidar_ICP()
 {
     scan1_sub_ = nh_.subscribe("scan1", 1, &Lidar_ICP::scan1_callback, this);
     scan2_sub_ = nh_.subscribe("scan2", 1, &Lidar_ICP::scan2_callback, this);
+    basescan_pub_ = nh_.advertise<sensor_msgs::PointCloud>("caliblation_pointcloud", 1);
 }
 
 Lidar_ICP::~Lidar_ICP()
@@ -13,7 +14,7 @@ Lidar_ICP::~Lidar_ICP()
 
 void Lidar_ICP::scan1_callback(const sensor_msgs::LaserScanConstPtr &data)
 {
-    //cout << "scan1_callback running " << endl;
+    // cout << "scan1_callback running " << endl;
     scan1_poses_.clear();
     int index_max = (data->angle_max - data->angle_min) / data->angle_increment;
     for (int i = 0; i < index_max; i++)
@@ -29,13 +30,13 @@ void Lidar_ICP::scan1_callback(const sensor_msgs::LaserScanConstPtr &data)
         scan_pose << range_temp * cos(angle_temp), range_temp * sin(angle_temp);
         scan1_poses_.push_back(scan_pose);
     }
-    //cout << "scan1_callback end " << endl;
+    // cout << "scan1_callback end " << endl;
     ready1_ = true;
 }
 
 void Lidar_ICP::scan2_callback(const sensor_msgs::LaserScanConstPtr &data)
 {
-    //cout << "scan2_callback running " << endl;
+    // cout << "scan2_callback running " << endl;
     scan2_poses_.clear();
     int index_max = (data->angle_max - data->angle_min) / data->angle_increment;
 
@@ -52,16 +53,17 @@ void Lidar_ICP::scan2_callback(const sensor_msgs::LaserScanConstPtr &data)
         scan_pose << range_temp * cos(angle_temp), range_temp * sin(angle_temp);
         scan2_poses_.push_back(scan_pose);
     }
-    //cout << "scan2_callback end " << endl;
+    // cout << "scan2_callback end " << endl;
     ready2_ = true;
 }
 
 void Lidar_ICP::ICP()
 {
-    if (!ready1_ || !ready2_){
+    if (!ready1_ || !ready2_)
+    {
         return;
     }
-    T_ << 1,0,0, 0,1,0, 0,0,1;
+    T_ << 1, 0, 0, 0, 1, 0, 0, 0, 1;
     for (int itertate = 0; itertate < 50; itertate++)
     {
         cout << "iteration: " << itertate << endl;
@@ -69,42 +71,34 @@ void Lidar_ICP::ICP()
         Kdnode *root = new Kdnode;
         kd_tree(scan1_poses_, 0, root);
         vector<vector<Vector2f>> point_pairs;
-        
-        //for(int test_1 = 0; test_1 < scan1_poses_.size();test_1++){
-        //    cout << scan1_poses_[test_1] << endl;
-        //}
-        //root->print_kdnode();
 
-
-        //cout << "scan2_poses_.size: " << scan2_poses_.size() << endl;
         for (int i = 0; i < scan2_poses_.size(); i++)
         {
-            //cout << "point paire ready...: " << i << endl;
+            // cout << "point paire ready...: " << i << endl;
             Kdnode *best = nn(root, scan2_poses_[i], 0);
-            //cout << "best best best...: " << best->data << endl;
+            // cout << "best best best...: " << best->data << endl;
             vector<Vector2f> point_pair;
-            Vector2f A,B;
+            Vector2f A, B;
             double distance = (best->data - scan2_poses_[i]).transpose() * (best->data - scan2_poses_[i]);
 
-            if (distance > 1000)
+            if (distance > 5)
                 continue;
             A << best->data(0), best->data(1);
             B << scan2_poses_[i](0), scan2_poses_[i](1);
-
 
             point_pair.push_back(B);
             point_pair.push_back(A);
             point_pairs.push_back(point_pair);
         }
 
-        //cout << "point paire end" << endl;
-        point_base_matching(point_pairs);
-
         if (point_pairs.size() == 0)
         {
             cout << "error" << endl;
             return;
         }
+
+        // cout << "point paire end" << endl;
+        point_base_matching(point_pairs);
 
         for (int i = 0; i < scan2_poses_.size(); i++)
         {
@@ -115,10 +109,15 @@ void Lidar_ICP::ICP()
             temp(1) = temp(1) + trans_(1);
             scan2_poses_.at(i) << temp(0), temp(1);
         }
-        //print_rotation();
-        //print_trans();
+
         print_T();
+
+        if (trans_(0) < 0.0001 && trans_(1) < 0.0001 && acos(rotation_(0, 0)) < 0.00001)
+        {
+            break;
+        }
     }
+    basescan_make();
 }
 
 void Lidar_ICP::point_base_matching(const vector<vector<Vector2f>> &point_pairs)
@@ -129,15 +128,10 @@ void Lidar_ICP::point_base_matching(const vector<vector<Vector2f>> &point_pairs)
     long double xp_mean = 0;
     long double yp_mean = 0;
     int index = point_pairs.size();
-    if (index == 0)
-    {
-        cout << "error" << endl;
-        return;
-    }
 
     for (int i = 0; i < index; i++)
     {
-        x_mean = x_mean + point_pairs[i][0](0);
+        x_mean += point_pairs[i][0](0);
         y_mean += point_pairs[i][0](1);
         xp_mean += point_pairs[i][1](0);
         yp_mean += point_pairs[i][1](1);
@@ -169,9 +163,45 @@ void Lidar_ICP::point_base_matching(const vector<vector<Vector2f>> &point_pairs)
     trans_ << translation_x, translation_y;
 
     Matrix3d T;
-    T << rotation_, trans_, 0,0,1;
-    T_ =  T*T_;
+    T << rotation_, trans_, 0, 0, 1;
+    T_ = T * T_;
 }
+
+void Lidar_ICP::basescan_make()
+{
+    sensor_msgs::PointCloud basepoint;
+    vector<geometry_msgs::Point32> points;
+    vector<sensor_msgs::ChannelFloat32> Channels;
+    basepoint.header.stamp = ros::Time::now();
+    basepoint.header.frame_id = "base_link";
+
+    for (int i = 0; i < scan1_poses_.size(); i++)
+    {
+        geometry_msgs::Point32 point;
+        sensor_msgs::ChannelFloat32 Channel;
+        point.x = scan1_poses_[i](0);
+        point.y = scan1_poses_[i](1);
+        point.z = 0.2;
+        points.push_back(point);
+        Channels.push_back(Channel);
+    }
+    for (int i = 0; i < scan2_poses_.size(); i++)
+    {
+        geometry_msgs::Point32 point;
+        sensor_msgs::ChannelFloat32 Channel;
+        point.x = scan2_poses_[i](0);
+        point.y = scan2_poses_[i](1);
+        point.z = 0.2;
+        points.push_back(point);
+        Channels.push_back(Channel);
+    }
+
+    basepoint.points = points;
+    basepoint.channels = Channels;
+    basescan_pub_.publish(basepoint);
+}
+
+
 
 void Lidar_ICP::print_rotation()
 {
@@ -193,15 +223,15 @@ void Lidar_ICP::print_T()
 
 double Lidar_ICP::get_transx()
 {
-    return T_(0,2);
+    return T_(0, 2);
 }
 
 double Lidar_ICP::get_transy()
 {
-    return T_(0,2);
+    return T_(0, 2);
 }
 
 double Lidar_ICP::get_rotation()
-{  
-    return acos(T_(0,0));
+{
+    return acos(T_(0, 0));
 }
