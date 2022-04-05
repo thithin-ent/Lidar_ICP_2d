@@ -29,9 +29,9 @@
 
 # example
 
- scan1data
- scan2data
- 정합된 데이터
+<p align="center"><img src="/fig/scan1.gif">scan1 data</p>
+<p align="center"><img src="/fig/scan2.gif">scan2 data</p>
+<p align="center"><img src="/fig/pointcloud.gif">caliblation pointcloud</p>
 
 # how it work
 
