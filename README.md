@@ -4,15 +4,12 @@
 
 # How to use
 
+    cd ~/catkin_ws/src
+    git clone https://github.com/thithin-ent/Lidar_ICP_2d.git
+    cd ~/catkin_ws
+    catkin_make
+    rosrun Lidar_ICP_2d Lidar_ICP_2d
 
-<Blockquote>
-cd ~/catkin_ws/src
-
-git clone https://github.com/thithin-ent/Lidar_ICP_2d.git
-cd ~/catkin_ws
-catkin_make
-rosrun Lidar_ICP_2d Lidar_ICP_2d
-</Blockquote>
 
 # subscriber topic
 
