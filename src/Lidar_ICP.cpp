@@ -74,17 +74,20 @@ void Lidar_ICP::ICP()
 
         for (int i = 0; i < scan2_poses_.size(); i++)
         {
-            // cout << "point paire ready...: " << i << endl;
-            Kdnode *best = nn(root, scan2_poses_[i], 0);
-            // cout << "best best best...: " << best->data << endl;
+            Vector2f temp;
+            temp << scan2_poses_[i](0)*T_(0,0) + scan2_poses_[i](1)*T_(0,1) + T_(0,2), scan2_poses_[i](0)*T_(1,0) + scan2_poses_[i](1)*T_(1,1) + T_(1,2);
+
+
+            Kdnode *best = nn(root, temp, 0);
+
             vector<Vector2f> point_pair;
             Vector2f A, B;
-            double distance = (best->data - scan2_poses_[i]).transpose() * (best->data - scan2_poses_[i]);
+            double distance = (best->data - temp).transpose() * (best->data - temp);
 
             if (distance > 5)
                 continue;
             A << best->data(0), best->data(1);
-            B << scan2_poses_[i](0), scan2_poses_[i](1);
+            B << temp(0), temp(1);
 
             point_pair.push_back(B);
             point_pair.push_back(A);
@@ -100,6 +103,13 @@ void Lidar_ICP::ICP()
         // cout << "point paire end" << endl;
         point_base_matching(point_pairs);
 
+
+
+
+
+
+        ///
+        /*
         for (int i = 0; i < scan2_poses_.size(); i++)
         {
             Vector2d temp;
@@ -109,7 +119,8 @@ void Lidar_ICP::ICP()
             temp(1) = temp(1) + trans_(1);
             scan2_poses_.at(i) << temp(0), temp(1);
         }
-
+        */
+       ///
         print_T();
 
         if (trans_(0) < 0.0001 && trans_(1) < 0.0001 && acos(rotation_(0, 0)) < 0.00001)
@@ -189,8 +200,8 @@ void Lidar_ICP::basescan_make()
     {
         geometry_msgs::Point32 point;
         sensor_msgs::ChannelFloat32 Channel;
-        point.x = scan2_poses_[i](0);
-        point.y = scan2_poses_[i](1);
+        point.x = scan2_poses_[i](0)*T_(0,0) + scan2_poses_[i](1)*T_(0,1) + T_(0,2);
+        point.y = scan2_poses_[i](0)*T_(1,0) + scan2_poses_[i](1)*T_(1,1) + T_(1,2);
         point.z = 0.2;
         points.push_back(point);
         Channels.push_back(Channel);
@@ -217,7 +228,7 @@ void Lidar_ICP::print_trans()
 
 void Lidar_ICP::print_T()
 {
-    cout << "T " << endl;
+    cout << "T ::" << endl;
     cout << T_ << endl;
 }
 
@@ -228,7 +239,7 @@ double Lidar_ICP::get_transx()
 
 double Lidar_ICP::get_transy()
 {
-    return T_(0, 2);
+    return T_(1, 2);
 }
 
 double Lidar_ICP::get_rotation()
