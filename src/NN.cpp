@@ -128,9 +128,7 @@ Kdnode *nn(Kdnode *current, const Vector2f &point, int depth)
         return NULL;
 
     Kdnode *next_b, *other_b;
-
-    //cout << "depth: " << depth << endl;
-
+    
     if (point(depth % 2) < current->data(depth % 2))
     {
         next_b = current->left;
@@ -144,18 +142,15 @@ Kdnode *nn(Kdnode *current, const Vector2f &point, int depth)
 
     Kdnode *temp = nn(next_b, point, depth + 1);
     Kdnode *best = closest(temp, current, point);
-
+    
     double radius = (best->data - point).transpose() * (best->data - point);
     double dist = point(depth % 2) - current->data(depth % 2);
 
-    //cout << "radius: " << radius << endl;
-    //cout << "dist: " << dist << endl;
     if (radius >= dist * dist)
     {
         Kdnode *temp = nn(other_b, point, depth + 1);
         Kdnode *best = closest(temp, best, point);
     }
-
     return best;
 }
 /*
